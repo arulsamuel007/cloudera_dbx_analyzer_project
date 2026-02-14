@@ -1,0 +1,14 @@
+jdbc_patterns:
+  - '(?i)jdbc:(mysql|mariadb)://[^\s;)''"`]+'
+  - '(?i)jdbc:postgresql://[^\s;)''"`]+'
+  - '(?i)jdbc:oracle:thin:@[^\s;)''"`]+'
+  - '(?i)jdbc:sqlserver://[^\s;)''"`]+'
+  - '(?i)jdbc:teradata://[^\s;)''"`]+'
+  - '(?i)jdbc:hive2://[^\s;)''"`]+'
+  - '(?i)jdbc:impala://[^\s;)''"`]+'
+
+kafka_bootstrap_patterns:
+  - '(?i)bootstrap\.servers\s*=\s*([^\s#]+)'
+
+url_patterns:
+  - '(?i)https?://[^\s)''"`]+'

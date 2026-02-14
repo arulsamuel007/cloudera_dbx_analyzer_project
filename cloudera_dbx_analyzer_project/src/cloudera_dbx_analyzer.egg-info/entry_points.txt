@@ -1,0 +1,2 @@
+[console_scripts]
+cloudera_dbx_analyzer = cldmigrate_analyzer.cli.main:main

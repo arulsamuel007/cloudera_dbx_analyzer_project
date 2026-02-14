@@ -1,0 +1,28 @@
+weights:
+  orchestration: 0.30
+  technology: 0.20
+  data: 0.20
+  operational: 0.15
+  security: 0.15
+
+thresholds:
+  low_max: 39
+  medium_max: 69
+
+# Heuristic scoring points (tunable)
+points:
+  # Existing points
+  oozie_action: 2
+  oozie_control_flow: 8
+  oozie_subworkflow: 6
+  multi_language_bonus: 10
+  streaming_bonus: 15
+  external_system_bonus: 5
+  dynamic_sql_bonus: 10
+  secrets_bonus: 15
+  schedule_high_freq_bonus: 8
+  
+  # NEW: Database complexity points
+  multi_database_bonus: 10        # 5+ databases in repository
+  high_table_usage_bonus: 8       # High number of table references (50+ reads or 20+ writes)
+  cross_database_bonus: 5         # Cross-database activity detected

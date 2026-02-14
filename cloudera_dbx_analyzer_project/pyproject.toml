@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudera-dbx-analyzer"
+version = "0.1.0"
+description = "Cloudera/Hadoop repository analyzer for Databricks migration (Phase-1)"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name="Arul Samuel (project owner)"}]
+license = {text = "MIT"}
+dependencies = [
+  "jinja2>=3.1.0",
+]
+
+[project.scripts]
+cloudera_dbx_analyzer = "cldmigrate_analyzer.cli.main:main"

@@ -1,0 +1,383 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Cloudera → Databricks Migration Analyzer Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 18px; }
+    h1,h2,h3 { margin: 0.6em 0 0.3em; }
+    .kpi { display: inline-block; margin-right: 18px; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; }
+    .muted { color: #666; font-size: 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0 18px; }
+    th, td { border: 1px solid #e3e3e3; padding: 8px; vertical-align: top; }
+    th { background: #f7f7f7; text-align: left; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #ddd; font-size: 12px; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-success { background: #d4edda; color: #155724; }
+    .badge-warning { background: #fff3cd; color: #856404; }
+    .badge-danger { background: #f8d7da; color: #721c24; }
+    .badge-primary { background: #cce5ff; color: #004085; }
+    .badge-info { background: #d1ecf1; color: #0c5460; }
+    .section { margin-top: 22px; }
+    details { margin: 8px 0; }
+    code { background: #f5f5f5; padding: 2px 5px; border-radius: 6px; }
+    .table-scroll { max-height: 400px; overflow-y: auto; margin: 10px 0; }
+    .highlight { background-color: #fff9e6; }
+  </style>
+</head>
+
+<body>
+  <h1>Cloudera → Databricks Migration Analyzer Report</h1>
+  <div class="muted">Repo: <code>{{ repo.repo_root }}</code> | Generated: {{ repo.generated_at_epoch }} | Elapsed: {{ repo.elapsed_seconds }}s</div>
+
+  <div style="margin-top:12px;">
+    <div class="kpi"><b>Files</b><div>{{ repo.file_count }}</div></div>
+    <div class="kpi"><b>Workflows</b><div>{{ repo.workflow_count }}</div></div>
+    <div class="kpi"><b>Coordinators</b><div>{{ repo.coordinator_count }}</div></div>
+    <div class="kpi"><b>Bundles</b><div>{{ repo.bundle_count }}</div></div>
+    {% if repo.database_count is defined %}
+    <div class="kpi highlight"><b>Databases</b><div>{{ repo.database_count }}</div></div>
+    {% endif %}
+    <div class="kpi"><b>Streaming</b><div>{{ "Yes" if repo.has_streaming else "No" }}</div></div>
+    <div class="kpi"><b>Dynamic SQL</b><div>{{ "Yes" if repo.has_dynamic_sql else "No" }}</div></div>
+  </div>
+
+  {# NEW SECTION: Database & Schema Inventory #}
+  {% if database_context and database_context.summary %}
+  <div class="section">
+    <h2>📊 Database & Schema Inventory</h2>
+    <div class="muted">Extracted from SQL files, Hive queries, and workflow definitions</div>
+    
+    <div style="margin-top:12px;">
+      <div class="kpi"><b>Databases</b><div>{{ database_context.summary.total_databases }}</div></div>
+      <div class="kpi"><b>Schemas</b><div>{{ database_context.summary.total_schemas }}</div></div>
+      <div class="kpi"><b>Source Table Refs</b><div>{{ database_context.summary.total_source_table_refs }}</div></div>
+      <div class="kpi"><b>Target Table Refs</b><div>{{ database_context.summary.total_target_table_refs }}</div></div>
+    </div>
+
+    <h3>Databases Found</h3>
+    {% if database_context.databases|length > 0 %}
+    <table>
+      <thead>
+        <tr>
+          <th>Database</th>
+          <th>Tables</th>
+          <th>Files Using This Database</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for db in database_context.databases %}
+        <tr>
+          <td><code>{{ db }}</code></td>
+          <td>{{ database_context.tables_by_database.get(db, [])|length }}</td>
+          <td>{{ database_context.files_by_database.get(db, [])|length }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="muted">No databases detected</div>
+    {% endif %}
+
+    <details>
+      <summary><h3 style="display: inline;">Source Tables (Reads)</h3> <span class="muted">({{ database_context.source_tables|length }} references)</span></summary>
+      {% if database_context.source_tables|length > 0 %}
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>Table</th>
+              <th>Operation</th>
+              <th>File</th>
+              <th>Line</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for table in database_context.source_tables[:200] %}
+            <tr>
+              <td><code>{{ table.database or '(unqualified)' }}</code></td>
+              <td><code>{{ table.table }}</code></td>
+              <td><span class="badge badge-info">{{ table.operation }}</span></td>
+              <td><small>{{ table.file }}</small></td>
+              <td>{{ table.line_number }}</td>
+              <td>
+                <span class="badge {% if table.confidence == 'high' %}badge-success{% elif table.confidence == 'medium' %}badge-warning{% else %}badge-danger{% endif %}">
+                  {{ table.confidence }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if database_context.source_tables|length > 200 %}
+            <tr>
+              <td colspan="6" class="muted" style="text-align: center;">
+                ... and {{ database_context.source_tables|length - 200 }} more (showing first 200)
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="muted">No source tables detected</div>
+      {% endif %}
+    </details>
+
+    <details>
+      <summary><h3 style="display: inline;">Target Tables (Writes)</h3> <span class="muted">({{ database_context.target_tables|length }} references)</span></summary>
+      {% if database_context.target_tables|length > 0 %}
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>Table</th>
+              <th>Operation</th>
+              <th>File</th>
+              <th>Line</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for table in database_context.target_tables[:200] %}
+            <tr>
+              <td><code>{{ table.database or '(unqualified)' }}</code></td>
+              <td><code>{{ table.table }}</code></td>
+              <td><span class="badge badge-primary">{{ table.operation }}</span></td>
+              <td><small>{{ table.file }}</small></td>
+              <td>{{ table.line_number }}</td>
+              <td>
+                <span class="badge {% if table.confidence == 'high' %}badge-success{% elif table.confidence == 'medium' %}badge-warning{% else %}badge-danger{% endif %}">
+                  {{ table.confidence }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if database_context.target_tables|length > 200 %}
+            <tr>
+              <td colspan="6" class="muted" style="text-align: center;">
+                ... and {{ database_context.target_tables|length - 200 }} more (showing first 200)
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="muted">No target tables detected</div>
+      {% endif %}
+    </details>
+
+    <details>
+      <summary><h3 style="display: inline;">Tables by Database</h3></summary>
+      {% if database_context.tables_by_database %}
+      <table>
+        <thead>
+          <tr>
+            <th>Database</th>
+            <th>Tables</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for db, tables in database_context.tables_by_database.items() %}
+          <tr>
+            <td><code>{{ db }}</code></td>
+            <td>
+              <div class="table-scroll" style="max-height: 150px;">
+                {% for table in tables %}
+                  <code style="display: inline-block; margin: 2px;">{{ table }}</code>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="muted">No database-table mappings available</div>
+      {% endif %}
+    </details>
+  </div>
+  {% endif %}
+
+  <div class="section">
+    <h2>Connections & paths</h2>
+    <div class="muted">Counts + drill-down evidence</div>
+    <ul>
+      <li>JDBC strings detected: <b>{{ findings.jdbc_count }}</b></li>
+      <li>URLs detected: <b>{{ findings.url_count }}</b></li>
+      <li>Kafka bootstrap hints: <b>{{ findings.kafka_bootstrap_count }}</b></li>
+      <li>Storage paths detected: <b>{{ findings.storage_path_count }}</b></li>
+    </ul>
+
+    <details>
+      <summary><b>JDBC details</b></summary>
+      <table>
+        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
+        {% for r in findings.jdbc_strings %}
+        <tr>
+          <td><code>{{ r.value }}</code></td>
+          <td>{{ r.file }}</td>
+          <td>{{ r.line }}</td>
+          <td>{{ r.confidence }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+
+    <details>
+      <summary><b>URL details</b></summary>
+      <table>
+        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
+        {% for r in findings.urls %}
+        <tr>
+          <td><code>{{ r.value }}</code></td>
+          <td>{{ r.file }}</td>
+          <td>{{ r.line }}</td>
+          <td>{{ r.confidence }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+
+    <details>
+      <summary><b>Storage path details</b></summary>
+      <table>
+        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
+        {% for r in findings.storage_paths %}
+        <tr>
+          <td><code>{{ r.value }}</code></td>
+          <td>{{ r.file }}</td>
+          <td>{{ r.line }}</td>
+          <td>{{ r.confidence }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+
+    <details>
+      <summary><b>Kafka bootstrap details</b></summary>
+      <table>
+        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
+        {% for r in findings.kafka_bootstrap_hints %}
+        <tr>
+          <td><code>{{ r.value }}</code></td>
+          <td>{{ r.file }}</td>
+          <td>{{ r.line }}</td>
+          <td>{{ r.confidence }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+  </div>
+
+  <div class="section">
+    <h2>Coordinators (Oozie schedules)</h2>
+    {% if coordinators|length == 0 %}
+      <div class="muted">No coordinators found.</div>
+    {% else %}
+      <table>
+        <tr>
+          <th>Name</th><th>Frequency</th><th>Start</th><th>End</th><th>Timezone</th><th>Workflow app-path</th><th>Controls</th>
+        </tr>
+        {% for c in coordinators %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td><code>{{ c.frequency }}</code></td>
+          <td>{{ c.start }}</td>
+          <td>{{ c.end }}</td>
+          <td>{{ c.timezone }}</td>
+          <td><code>{{ c.workflow_app_path }}</code></td>
+          <td class="muted">
+            {% if c.controls %}
+              concurrency={{ c.controls.concurrency }},
+              execution={{ c.controls.execution }},
+              throttle={{ c.controls.throttle }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div class="muted">
+        Note: Oozie coordinators typically use <code>${coord:...}</code> expressions rather than cron.
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>Resolved variables</h2>
+    <details open>
+      <summary><b>Resolved</b> ({{ resolved_vars|length }})</summary>
+      <table>
+        <tr><th>Name</th><th>Value</th><th>Definitions</th></tr>
+        {% for v in resolved_vars %}
+        <tr>
+          <td><code>{{ v.name }}</code></td>
+          <td><code>{{ v.value }}</code></td>
+          <td class="muted">
+            {% for d in v.definitions %}
+              <div>{{ d.kind }} @ {{ d.defined_in }}</div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+
+    <details>
+      <summary><b>Partially resolved</b> ({{ partial_vars|length }})</summary>
+      <table>
+        <tr><th>Name</th><th>Raw</th><th>Resolved</th><th>Unresolved parts</th></tr>
+        {% for v in partial_vars %}
+        <tr>
+          <td><code>{{ v.name }}</code></td>
+          <td><code>{{ v.raw_value }}</code></td>
+          <td><code>{{ v.resolved_value }}</code></td>
+          <td class="muted">{{ v.unresolved_parts }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+
+    <details>
+      <summary><b>Still unresolved</b> ({{ unresolved_vars|length }})</summary>
+      <table>
+        <tr><th>Name</th><th>Reason</th><th>Definitions found</th></tr>
+        {% for v in unresolved_vars %}
+        <tr>
+          <td><code>{{ v.name }}</code></td>
+          <td class="muted">{{ v.reason }}</td>
+          <td class="muted">
+            {% for d in v.definitions_found %}
+              <div>{{ d.kind }} @ {{ d.defined_in }}</div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+  </div>
+
+  <div class="section">
+    <h2>File inventory</h2>
+    <table>
+      <tr>
+        <th>Path</th><th>Type</th><th>Lines</th><th>Words</th><th>Status</th>
+      </tr>
+      {% for f in files %}
+      <tr>
+        <td>{{ f.path }}</td>
+        <td>{{ f.detected_type }}</td>
+        <td>{{ f.lines_count }}</td>
+        <td>{{ f.words_count }}</td>
+        <td class="muted">{{ f.parse_status }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+</body>
+</html>

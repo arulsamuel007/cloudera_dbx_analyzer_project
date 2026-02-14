@@ -1,0 +1,17 @@
+# Signals to refine classification
+hive_signals:
+  - '(?i)\bset\s+hive\.'
+  - '(?i)\bmsck\s+repair\b'
+  - '(?i)\badd\s+jar\b'
+  - '(?i)\bcreate\s+temporary\s+function\b'
+
+impala_signals:
+  - '(?i)\binvalidate\s+metadata\b'
+  - '(?i)\brefresh\b'
+  - '(?i)\bcompute\s+stats\b'
+
+scalding_signals:
+  - 'com\.twitter\.scalding'
+
+cascading_signals:
+  - 'cascading\.'

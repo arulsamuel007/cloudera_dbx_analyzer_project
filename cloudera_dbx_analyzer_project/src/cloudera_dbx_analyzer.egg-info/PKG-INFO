@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: cloudera-dbx-analyzer
+Version: 0.1.0
+Summary: Cloudera/Hadoop repository analyzer for Databricks migration (Phase-1)
+Author: Arul Samuel (project owner)
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: jinja2>=3.1.0
+Dynamic: license-file
+
+# Cloudera → Databricks Migration Analyzer (Phase-1)
+
+This utility statically analyzes a Cloudera/Hadoop repository (Oozie, Hive/Impala, Pig, Python/Scala/Java, notebooks, configs) and produces:
+- an **HTML report**
+- **JSON artifacts** (normalized findings, workflows, dependencies, complexity, unresolved)
+
+## Install (local)
+Create a venv and install from source:
+- `pip install -e .` (dev) OR build wheel and install
+
+## Run
+Basic:
+- `cloudera_dbx_analyzer <INPUT_DIR>`
+
+Example (Windows):
+- `cloudera_dbx_analyzer "C:\Users\Arul\...\examples"`
+
+Default output:
+- `<parent_of_input>/output_files/run_YYYYMMDD_HHMMSS/`
+
+## Databricks
+Recommended paths:
+- Input: `/Volumes/<catalog>/<schema>/<volume>/...` or `/dbfs/...`
+- Output: will be created alongside input parent unless you pass `--output`
+
+## Notes
+- Best-effort parsing: the tool continues even if some files fail parsing.
+- Secrets are **redacted** in outputs by default.

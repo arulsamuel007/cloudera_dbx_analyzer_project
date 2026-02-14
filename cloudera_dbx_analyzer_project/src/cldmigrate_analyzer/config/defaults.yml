@@ -1,0 +1,36 @@
+max_file_mb: 10
+follow_symlinks: false
+redaction_mode: strict
+include_globs: []
+exclude_globs:
+  - ".git/*"
+  - "**/.git/**"
+  - "node_modules/**"
+  - "target/**"
+  - "dist/**"
+  - "build/**"
+  - ".venv/**"
+  - "**/__pycache__/**"
+skip_extensions:
+  - ".jar"
+  - ".class"
+  - ".so"
+  - ".dll"
+  - ".exe"
+  - ".zip"
+  - ".tar"
+  - ".gz"
+  - ".7z"
+  - ".parquet"
+  - ".orc"
+  - ".avro"
+  - ".snappy"
+  - ".zst"
+  - ".png"
+  - ".jpg"
+  - ".jpeg"
+  - ".gif"
+  - ".pdf"
+  - ".docx"
+  - ".pptx"
+  - ".xlsx"
