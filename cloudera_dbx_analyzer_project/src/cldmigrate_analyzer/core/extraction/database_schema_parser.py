@@ -1,8 +1,12 @@
 """
-Database and Schema Extraction Module
+Database and Schema Extraction Module - FIXED VERSION
 
 This module provides enhanced parsing of database/schema information from SQL files,
-supporting various formats used in Cloudera/Hadoop environments.
+with proper handling of:
+- IF NOT EXISTS clauses
+- Hive variables (${hiveconf:var}, ${var})
+- Complex qualified names
+- Multiple database notations
 """
 
 import re
@@ -38,6 +42,7 @@ class DatabaseContext:
     qualified_tables: List[Dict[str, str]]  # All qualified table references
     unqualified_tables: List[str]           # Tables without db/schema prefix
     active_database: Optional[str]          # Last USE statement database (if any)
+    variables_found: List[str]              # All Hive variables found
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -49,45 +54,85 @@ class DatabaseContext:
             "qualified_tables": self.qualified_tables,
             "unqualified_tables": self.unqualified_tables,
             "active_database": self.active_database,
+            "variables_found": self.variables_found,
             "summary": {
                 "total_databases": len(self.databases),
                 "total_schemas": len(self.schemas),
                 "total_source_tables": len(self.source_tables),
                 "total_target_tables": len(self.target_tables),
                 "total_qualified_refs": len(self.qualified_tables),
-                "total_unqualified_refs": len(self.unqualified_tables)
+                "total_unqualified_refs": len(self.unqualified_tables),
+                "total_variables": len(self.variables_found)
             }
         }
 
 
 class DatabaseSchemaParser:
     """
-    Parses database and schema information from SQL text.
+    Enhanced parser for database and schema information from SQL text.
     
-    Supports various notation styles:
-    - database.table (Hive/Impala 2-part names)
-    - catalog.database.table (Hive 3+ / Databricks 3-part names)
-    - schema.table (standard SQL)
-    - table (unqualified)
-    
-    Also tracks USE database statements for context.
+    FIXED ISSUES:
+    - Properly handles IF NOT EXISTS in CREATE TABLE statements
+    - Correctly extracts Hive variables (${hiveconf:var}, ${var})
+    - Parses qualified table names with variables
     """
     
-    # Regex patterns for various SQL constructs
-    USE_DB_RE = re.compile(r'(?i)\bUSE\s+(DATABASE\s+)?(?:SCHEMA\s+)?([`"\[]?[\w]+[`"\]]?)\s*;?', re.MULTILINE)
+    # Regex patterns for SQL constructs
+    USE_DB_RE = re.compile(
+        r'(?i)\bUSE\s+(?:DATABASE\s+)?(?:SCHEMA\s+)?([`"\[]?[\w]+[`"\]]?)\s*;?',
+        re.MULTILINE
+    )
     
-    # Updated patterns to capture full qualified names with optional backticks/quotes
-    SQL_FROM_RE = re.compile(r'(?i)\bFROM\s+([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_JOIN_RE = re.compile(r'(?i)\bJOIN\s+([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_INSERT_RE = re.compile(r'(?i)\bINSERT\s+(?:INTO|OVERWRITE)\s+(?:TABLE\s+)?([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_CREATE_RE = re.compile(r'(?i)\bCREATE\s+(?:EXTERNAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_MERGE_RE = re.compile(r'(?i)\bMERGE\s+INTO\s+([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_UPDATE_RE = re.compile(r'(?i)\bUPDATE\s+([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_DELETE_RE = re.compile(r'(?i)\bDELETE\s+FROM\s+([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
-    SQL_TRUNCATE_RE = re.compile(r'(?i)\bTRUNCATE\s+(?:TABLE\s+)?([`"\[]?[\w]+[`"\]]?(?:\.[\w]+)*)', re.MULTILINE)
+    # FIXED: Updated CREATE TABLE pattern to handle IF NOT EXISTS
+    SQL_CREATE_RE = re.compile(
+        r'(?i)\bCREATE\s+(?:EXTERNAL\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?'
+        r'([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
     
-    # Pattern to detect Hive variables in table names
-    VAR_PATTERN = re.compile(r'\$\{[^}]+\}')
+    # Updated patterns for other operations
+    SQL_FROM_RE = re.compile(
+        r'(?i)\bFROM\s+([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    SQL_JOIN_RE = re.compile(
+        r'(?i)\b(?:INNER\s+|LEFT\s+(?:OUTER\s+)?|RIGHT\s+(?:OUTER\s+)?|FULL\s+(?:OUTER\s+)?|CROSS\s+)?JOIN\s+'
+        r'([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    SQL_INSERT_RE = re.compile(
+        r'(?i)\bINSERT\s+(?:INTO|OVERWRITE)\s+(?:TABLE\s+)?'
+        r'([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    SQL_MERGE_RE = re.compile(
+        r'(?i)\bMERGE\s+INTO\s+([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    SQL_UPDATE_RE = re.compile(
+        r'(?i)\bUPDATE\s+([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    SQL_DELETE_RE = re.compile(
+        r'(?i)\bDELETE\s+FROM\s+([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    SQL_TRUNCATE_RE = re.compile(
+        r'(?i)\bTRUNCATE\s+(?:TABLE\s+)?([`"\[]?[\w\.\$\{\}:]+[`"\]]?)',
+        re.MULTILINE
+    )
+    
+    # Hive variable patterns - ENHANCED
+    HIVECONF_VAR_RE = re.compile(r'\$\{hiveconf:(\w+)\}')
+    HIVEVAR_VAR_RE = re.compile(r'\$\{hivevar:(\w+)\}')
+    SIMPLE_VAR_RE = re.compile(r'\$\{(\w+)\}')
+    ALL_VAR_RE = re.compile(r'\$\{[^}]+\}')
     
     @staticmethod
     def clean_identifier(name: str) -> str:
@@ -95,32 +140,73 @@ class DatabaseSchemaParser:
         return name.strip('`"[]').strip()
     
     @staticmethod
+    def extract_variables(text: str) -> List[str]:
+        """Extract all Hive variables from text"""
+        variables = set()
+        
+        # Extract hiveconf variables
+        for match in DatabaseSchemaParser.HIVECONF_VAR_RE.finditer(text):
+            variables.add(f"hiveconf:{match.group(1)}")
+        
+        # Extract hivevar variables
+        for match in DatabaseSchemaParser.HIVEVAR_VAR_RE.finditer(text):
+            variables.add(f"hivevar:{match.group(1)}")
+        
+        # Extract simple variables (not hiveconf or hivevar)
+        for match in DatabaseSchemaParser.SIMPLE_VAR_RE.finditer(text):
+            full_match = match.group(0)
+            if 'hiveconf:' not in full_match and 'hivevar:' not in full_match:
+                variables.add(match.group(1))
+        
+        return sorted(list(variables))
+    
+    @staticmethod
     def parse_qualified_name(full_name: str) -> Tuple[Optional[str], Optional[str], str]:
         """
-        Parse a qualified table name into components.
+        Parse a qualified table name into components, handling Hive variables.
         
-        Supports:
-        - table → (None, None, table)
-        - schema.table → (None, schema, table)  OR  (database, None, table)
-        - catalog.schema.table → (catalog, schema, table)
+        Examples:
+        - "customers" → (None, None, "customers")
+        - "sales.customers" → ("sales", None, "customers")
+        - "${hiveconf:raw_db}.raw_customer" → ("${hiveconf:raw_db}", None, "raw_customer")
+        - "prod.sales.customers" → ("prod", "sales", "customers")
         
         Returns: (database/catalog, schema, table)
-        
-        Note: In 2-part names, we treat the first part as database (Hive style)
         """
-        parts = [DatabaseSchemaParser.clean_identifier(p) for p in full_name.split('.')]
+        # Check if it contains variables
+        has_vars = bool(DatabaseSchemaParser.ALL_VAR_RE.search(full_name))
         
+        # Split by dots, preserving variable expressions
+        parts = []
+        current = ""
+        in_variable = False
+        
+        for char in full_name:
+            if char == '$' and len(full_name) > full_name.index('$') + 1 and full_name[full_name.index('$') + 1] == '{':
+                in_variable = True
+                current += char
+            elif char == '}' and in_variable:
+                in_variable = False
+                current += char
+            elif char == '.' and not in_variable:
+                if current:
+                    parts.append(DatabaseSchemaParser.clean_identifier(current))
+                    current = ""
+            else:
+                current += char
+        
+        if current:
+            parts.append(DatabaseSchemaParser.clean_identifier(current))
+        
+        # Parse based on number of parts
         if len(parts) == 1:
-            # Unqualified: just table name
             return (None, None, parts[0])
         elif len(parts) == 2:
-            # 2-part: treat as database.table (Hive/Impala convention)
             return (parts[0], None, parts[1])
         elif len(parts) == 3:
-            # 3-part: catalog.database.table or database.schema.table
             return (parts[0], parts[1], parts[2])
         else:
-            # More than 3 parts or malformed - return as-is
+            # Malformed - return as-is
             return (None, None, full_name)
     
     @staticmethod
@@ -129,7 +215,7 @@ class DatabaseSchemaParser:
         use_stmts = []
         for i, line in enumerate(text.split('\n'), 1):
             for match in DatabaseSchemaParser.USE_DB_RE.finditer(line):
-                db_name = DatabaseSchemaParser.clean_identifier(match.group(2))
+                db_name = DatabaseSchemaParser.clean_identifier(match.group(1))
                 use_stmts.append({
                     "database": db_name,
                     "line": i,
@@ -160,8 +246,12 @@ class DatabaseSchemaParser:
             for match in regex_pattern.finditer(line):
                 full_name = DatabaseSchemaParser.clean_identifier(match.group(1))
                 
+                # Skip if this looks like a keyword or SQL construct
+                if full_name.upper() in ('IF', 'NOT', 'EXISTS', 'EXTERNAL', 'TABLE'):
+                    continue
+                
                 # Check for variables
-                has_vars = bool(DatabaseSchemaParser.VAR_PATTERN.search(full_name))
+                has_vars = bool(DatabaseSchemaParser.ALL_VAR_RE.search(full_name))
                 
                 # Parse qualified name
                 database, schema, table = DatabaseSchemaParser.parse_qualified_name(full_name)
@@ -169,11 +259,11 @@ class DatabaseSchemaParser:
                 # If no database specified but we have an active database, use it
                 if not database and active_database and not has_vars:
                     database = active_database
-                    schema = None  # Clear schema since we're using active database
+                    schema = None
                 
                 # Determine confidence
                 if has_vars:
-                    confidence = "low"
+                    confidence = "low" if database and DatabaseSchemaParser.ALL_VAR_RE.search(database) else "medium"
                 elif database or schema:
                     confidence = "high"
                 else:
@@ -207,6 +297,9 @@ class DatabaseSchemaParser:
         # Extract USE statements first to establish context
         use_stmts = DatabaseSchemaParser.extract_use_statements(text)
         active_database = use_stmts[-1]["database"] if use_stmts else None
+        
+        # Extract all variables
+        all_variables = DatabaseSchemaParser.extract_variables(text)
         
         # Extract all table references by operation type
         source_refs = []
@@ -263,7 +356,8 @@ class DatabaseSchemaParser:
         unqualified_tables: Set[str] = set()
         
         for ref in source_refs + target_refs:
-            if ref.database:
+            # Only add non-variable databases
+            if ref.database and not DatabaseSchemaParser.ALL_VAR_RE.search(ref.database):
                 databases.add(ref.database)
             if ref.schema:
                 schemas.add(ref.schema)
@@ -290,7 +384,8 @@ class DatabaseSchemaParser:
             target_tables=target_refs,
             qualified_tables=qualified_tables,
             unqualified_tables=sorted(list(unqualified_tables)),
-            active_database=active_database
+            active_database=active_database,
+            variables_found=all_variables
         )
 
 
@@ -302,18 +397,12 @@ def extract_databases_from_repository(
     Repository-level database/schema extraction.
     
     Scans all SQL files and aggregates database/schema information across the entire repo.
-    
-    Args:
-        repo_root: Path to repository root
-        files_index: List of file metadata dicts from repo scanner
-        
-    Returns:
-        Aggregated database context for the entire repository
     """
     all_databases: Set[str] = set()
     all_schemas: Set[str] = set()
     all_source_tables: List[Dict[str, Any]] = []
     all_target_tables: List[Dict[str, Any]] = []
+    all_variables: Set[str] = set()
     files_by_database: Dict[str, List[str]] = {}
     tables_by_database: Dict[str, Set[str]] = {}
     
@@ -342,6 +431,7 @@ def extract_databases_from_repository(
         # Aggregate databases and schemas
         all_databases.update(context.databases)
         all_schemas.update(context.schemas)
+        all_variables.update(context.variables_found)
         
         # Track which files use which databases
         for db in context.databases:
@@ -355,8 +445,8 @@ def extract_databases_from_repository(
             table_dict["file"] = rel_path
             all_source_tables.append(table_dict)
             
-            # Track tables by database
-            if src_table.database:
+            # Track tables by database (only non-variable databases)
+            if src_table.database and not DatabaseSchemaParser.ALL_VAR_RE.search(src_table.database):
                 if src_table.database not in tables_by_database:
                     tables_by_database[src_table.database] = set()
                 tables_by_database[src_table.database].add(src_table.table)
@@ -366,8 +456,8 @@ def extract_databases_from_repository(
             table_dict["file"] = rel_path
             all_target_tables.append(table_dict)
             
-            # Track tables by database
-            if tgt_table.database:
+            # Track tables by database (only non-variable databases)
+            if tgt_table.database and not DatabaseSchemaParser.ALL_VAR_RE.search(tgt_table.database):
                 if tgt_table.database not in tables_by_database:
                     tables_by_database[tgt_table.database] = set()
                 tables_by_database[tgt_table.database].add(tgt_table.table)
@@ -385,11 +475,13 @@ def extract_databases_from_repository(
         "target_tables": all_target_tables,
         "files_by_database": files_by_database,
         "tables_by_database": tables_by_db_list,
+        "variables_found": sorted(list(all_variables)),
         "summary": {
             "total_databases": len(all_databases),
             "total_schemas": len(all_schemas),
             "total_source_table_refs": len(all_source_tables),
             "total_target_table_refs": len(all_target_tables),
-            "databases_with_tables": len(tables_by_database)
+            "databases_with_tables": len(tables_by_database),
+            "total_variables": len(all_variables)
         }
     }

@@ -11,7 +11,6 @@ def classify_level(score: int, thresholds: Dict[str,int]) -> str:
 def score_item(item_id: str, dims: Dict[str,int], thresholds: Dict[str,int], reasons: List[str], flags: List[str]) -> Complexity:
     total = sum(dims.values())
     lvl = classify_level(total, thresholds)
-    # keep top 7 reasons
     return Complexity(item_id=item_id, level=lvl, total_score=total, dimension_scores=dims, top_reasons=reasons[:7], risk_flags=flags)
 
 
@@ -24,14 +23,16 @@ def score_repository(
     findings: Dict[str, Any],
     lineage: List[Dict[str, Any]],
     rubric: Dict[str, Any],
-    database_context: Dict[str, Any] = None,  # NEW: Database context parameter
+    database_context: Dict[str, Any] = None,
+    sql_complexity_summary: Dict[str, Any] = None,  # NEW: SQL complexity parameter
 ) -> Dict[str, Any]:
     """
-    Compute a heuristic complexity score for the repository and key items.
-
-    Returns a JSON-serializable dict:
-      - repo_level, repo_score
-      - items: list of Complexity dicts (workflows + coordinators + repo_overview)
+    Compute comprehensive complexity score for the repository.
+    
+    Now includes:
+    - Database/schema complexity
+    - SQL query complexity
+    - All existing metrics
     """
     pts = (rubric or {}).get("points", {}) or {}
     thresholds = (rubric or {}).get("thresholds", {}) or {}
@@ -97,46 +98,85 @@ def score_repository(
 
     # data: lineage volume + dynamic SQL
     if lineage:
-        repo_dims["data"] += min(25, len(lineage))  # cap to avoid runaway
+        repo_dims["data"] += min(25, len(lineage))
         repo_reasons.append(f"SQL lineage entries: {len(lineage)}")
     if dynamic_sql_flag:
         repo_dims["data"] += int(pts.get("dynamic_sql_bonus", 10))
         repo_flags.append("dynamic_sql")
         repo_reasons.append("Dynamic SQL patterns detected")
 
-    # NEW: Database complexity factors
+    # Database complexity factors
     if database_context:
         db_summary = database_context.get("summary", {})
         num_databases = db_summary.get("total_databases", 0)
         num_source_refs = db_summary.get("total_source_table_refs", 0)
         num_target_refs = db_summary.get("total_target_table_refs", 0)
         
-        # Add points for multi-database complexity
         if num_databases >= 5:
             repo_dims["data"] += int(pts.get("multi_database_bonus", 10))
             repo_reasons.append(f"Multiple databases detected: {num_databases}")
             repo_flags.append("multi_database")
         
-        # Add points for high table usage
         if num_source_refs > 50 or num_target_refs > 20:
             repo_dims["data"] += int(pts.get("high_table_usage_bonus", 8))
             repo_reasons.append(f"High table usage: {num_source_refs} reads, {num_target_refs} writes")
         
-        # Check for cross-database activity
         files_by_db = database_context.get("files_by_database", {})
         cross_db_files = sum(1 for db_list in files_by_db.values() if len(db_list) > 1)
         if cross_db_files > 0:
-            # This is a rough heuristic - files touching multiple DBs
             repo_dims["data"] += min(10, cross_db_files)
             repo_reasons.append(f"Cross-database activity detected in multiple files")
             repo_flags.append("cross_database")
+
+    # SQL Complexity factors (NEW)
+    if sql_complexity_summary:
+        queries_analyzed = sql_complexity_summary.get("queries_analyzed", 0)
+        avg_complexity = sql_complexity_summary.get("average_complexity_score", 0)
+        dist = sql_complexity_summary.get("complexity_distribution", {})
+        complex_count = dist.get("complex", 0) + dist.get("very_complex", 0)
+        
+        # Add points based on SQL complexity
+        if queries_analyzed > 0:
+            # Average complexity factor
+            if avg_complexity > 50:
+                repo_dims["data"] += int(pts.get("high_sql_complexity_bonus", 15))
+                repo_reasons.append(f"High average SQL complexity: {avg_complexity:.1f}")
+                repo_flags.append("complex_sql")
+            elif avg_complexity > 30:
+                repo_dims["data"] += int(pts.get("moderate_sql_complexity_bonus", 8))
+                repo_reasons.append(f"Moderate SQL complexity: {avg_complexity:.1f}")
+            
+            # Complex query count factor
+            if complex_count > 10:
+                repo_dims["data"] += int(pts.get("many_complex_queries_bonus", 10))
+                repo_reasons.append(f"Many complex SQL queries: {complex_count}")
+            elif complex_count > 5:
+                repo_dims["data"] += int(pts.get("some_complex_queries_bonus", 5))
+                repo_reasons.append(f"Some complex SQL queries: {complex_count}")
+            
+            # SQL-specific risk flags
+            risk_flags = sql_complexity_summary.get("risk_flag_summary", {})
+            if risk_flags.get("correlated_subqueries", 0) > 5:
+                repo_dims["data"] += 8
+                repo_flags.append("correlated_subqueries")
+                repo_reasons.append("Multiple correlated subqueries detected")
+            
+            if risk_flags.get("cross_join", 0) > 0:
+                repo_dims["data"] += 10
+                repo_flags.append("cross_joins")
+                repo_reasons.append("CROSS JOINs detected (performance risk)")
+            
+            if risk_flags.get("many_joins", 0) > 3:
+                repo_dims["data"] += 6
+                repo_flags.append("many_joins")
+                repo_reasons.append("Queries with many JOINs detected")
 
     # operational: streaming + schedule density
     if streaming_flag:
         repo_dims["operational"] += int(pts.get("streaming_bonus", 15))
         repo_flags.append("streaming")
         repo_reasons.append("Streaming hints detected (Kafka/Spark streaming/etc.)")
-    # crude schedule heuristic: high frequency if coord frequency contains 'minutes' or small values
+    
     high_freq = 0
     for c in coords:
         freq = (c.get("frequency") or "").lower()
@@ -157,7 +197,7 @@ def score_repository(
 
     repo_item = score_item("repo_overview", repo_dims, thresholds, repo_reasons, repo_flags)
 
-    # 3) per-workflow complexity items (coarse)
+    # 3) per-workflow complexity items
     items = [asdict(repo_item)]
     for wf in wfs:
         wf_name = wf.get("name") or wf.get("source_file") or "workflow"

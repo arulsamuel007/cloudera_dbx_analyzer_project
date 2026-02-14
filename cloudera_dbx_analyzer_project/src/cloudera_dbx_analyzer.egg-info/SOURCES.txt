@@ -16,6 +16,7 @@ src/cldmigrate_analyzer/core/discovery/repo_scanner.py
 src/cldmigrate_analyzer/core/extraction/__init__.py
 src/cldmigrate_analyzer/core/extraction/database_schema_parser.py
 src/cldmigrate_analyzer/core/extraction/extractors.py
+src/cldmigrate_analyzer/core/extraction/sql_complexity_analyzer.py
 src/cldmigrate_analyzer/core/metrics/__init__.py
 src/cldmigrate_analyzer/core/metrics/complexity.py
 src/cldmigrate_analyzer/core/metrics/counts.py

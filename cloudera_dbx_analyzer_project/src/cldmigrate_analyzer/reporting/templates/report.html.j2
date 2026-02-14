@@ -2,382 +2,784 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Cloudera → Databricks Migration Analyzer Report</title>
+  <title>Cloudera → Databricks Migration Analyzer - Comprehensive Report</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 18px; }
-    h1,h2,h3 { margin: 0.6em 0 0.3em; }
-    .kpi { display: inline-block; margin-right: 18px; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; }
-    .muted { color: #666; font-size: 12px; }
-    table { border-collapse: collapse; width: 100%; margin: 10px 0 18px; }
-    th, td { border: 1px solid #e3e3e3; padding: 8px; vertical-align: top; }
-    th { background: #f7f7f7; text-align: left; }
-    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #ddd; font-size: 12px; }
-    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    :root {
+      --color-primary: #0066cc;
+      --color-success: #28a745;
+      --color-warning: #ffc107;
+      --color-danger: #dc3545;
+      --color-info: #17a2b8;
+      --color-simple: #28a745;
+      --color-moderate: #ffc107;
+      --color-complex: #ff9800;
+      --color-very-complex: #dc3545;
+      --bg-light: #f8f9fa;
+      --bg-highlight: #fff9e6;
+      --border-color: #e3e3e3;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+      margin: 0; 
+      padding: 20px;
+      background: var(--bg-light);
+      color: #333;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    h1 { 
+      margin: 0 0 10px;
+      color: var(--color-primary);
+      font-size: 32px;
+      border-bottom: 3px solid var(--color-primary);
+      padding-bottom: 10px;
+    }
+    
+    h2 { 
+      margin: 30px 0 15px;
+      color: var(--color-primary);
+      font-size: 24px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+    
+    h3 { 
+      margin: 20px 0 10px;
+      font-size: 18px;
+      color: #555;
+    }
+    
+    .header-meta {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 20px;
+      padding: 10px;
+      background: var(--bg-light);
+      border-radius: 4px;
+    }
+    
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .kpi {
+      background: white;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+    
+    .kpi:hover {
+      border-color: var(--color-primary);
+      box-shadow: 0 4px 12px rgba(0,102,204,0.1);
+    }
+    
+    .kpi.highlight {
+      background: var(--bg-highlight);
+      border-color: var(--color-warning);
+    }
+    
+    .kpi-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    
+    .kpi-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--color-primary);
+    }
+    
+    .kpi-subtitle {
+      font-size: 11px;
+      color: #999;
+      margin-top: 3px;
+    }
+    
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 15px 0;
+      background: white;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    th {
+      background: var(--color-primary);
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    td {
+      border: 1px solid var(--border-color);
+      padding: 10px 12px;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    
+    tr:hover {
+      background: var(--bg-light);
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    
     .badge-success { background: #d4edda; color: #155724; }
     .badge-warning { background: #fff3cd; color: #856404; }
     .badge-danger { background: #f8d7da; color: #721c24; }
     .badge-primary { background: #cce5ff; color: #004085; }
     .badge-info { background: #d1ecf1; color: #0c5460; }
-    .section { margin-top: 22px; }
-    details { margin: 8px 0; }
-    code { background: #f5f5f5; padding: 2px 5px; border-radius: 6px; }
-    .table-scroll { max-height: 400px; overflow-y: auto; margin: 10px 0; }
-    .highlight { background-color: #fff9e6; }
+    .badge-simple { background: var(--color-simple); color: white; }
+    .badge-moderate { background: var(--color-moderate); color: #333; }
+    .badge-complex { background: var(--color-complex); color: white; }
+    .badge-very-complex { background: var(--color-very-complex); color: white; }
+    
+    .section {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+    }
+    
+    .subsection {
+      margin: 25px 0;
+      padding: 20px;
+      background: var(--bg-light);
+      border-radius: 6px;
+      border-left: 4px solid var(--color-primary);
+    }
+    
+    details {
+      margin: 15px 0;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    
+    summary {
+      background: var(--bg-light);
+      padding: 12px 15px;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--color-primary);
+      user-select: none;
+      transition: background 0.2s;
+    }
+    
+    summary:hover {
+      background: #e9ecef;
+    }
+    
+    details[open] summary {
+      border-bottom: 1px solid var(--border-color);
+      background: white;
+    }
+    
+    details > *:not(summary) {
+      padding: 15px;
+    }
+    
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #d63384;
+    }
+    
+    .code-block {
+      background: #f8f9fa;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 15px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 10px 0;
+    }
+    
+    .table-scroll {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    
+    .table-scroll table {
+      margin: 0;
+    }
+    
+    .muted {
+      color: #6c757d;
+      font-size: 13px;
+    }
+    
+    .small-text {
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .complexity-bar {
+      height: 20px;
+      background: #e9ecef;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 5px 0;
+    }
+    
+    .complexity-fill {
+      height: 100%;
+      transition: width 0.3s;
+    }
+    
+    .complexity-fill.simple { background: var(--color-simple); }
+    .complexity-fill.moderate { background: var(--color-moderate); }
+    .complexity-fill.complex { background: var(--color-complex); }
+    .complexity-fill.very-complex { background: var(--color-very-complex); }
+    
+    .risk-flag {
+      display: inline-block;
+      margin: 3px;
+      padding: 3px 8px;
+      background: var(--color-danger);
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .metric-card {
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 15px;
+      background: white;
+    }
+    
+    .metric-card-title {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    
+    .metric-card-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--color-primary);
+    }
+    
+    .chart-container {
+      margin: 20px 0;
+      padding: 20px;
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+      font-style: italic;
+    }
+    
+    .icon { margin-right: 5px; }
+    
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; }
+      details { page-break-inside: avoid; }
+      .kpi { border: 1px solid #ccc; }
+    }
   </style>
 </head>
 
 <body>
-  <h1>Cloudera → Databricks Migration Analyzer Report</h1>
-  <div class="muted">Repo: <code>{{ repo.repo_root }}</code> | Generated: {{ repo.generated_at_epoch }} | Elapsed: {{ repo.elapsed_seconds }}s</div>
-
-  <div style="margin-top:12px;">
-    <div class="kpi"><b>Files</b><div>{{ repo.file_count }}</div></div>
-    <div class="kpi"><b>Workflows</b><div>{{ repo.workflow_count }}</div></div>
-    <div class="kpi"><b>Coordinators</b><div>{{ repo.coordinator_count }}</div></div>
-    <div class="kpi"><b>Bundles</b><div>{{ repo.bundle_count }}</div></div>
-    {% if repo.database_count is defined %}
-    <div class="kpi highlight"><b>Databases</b><div>{{ repo.database_count }}</div></div>
-    {% endif %}
-    <div class="kpi"><b>Streaming</b><div>{{ "Yes" if repo.has_streaming else "No" }}</div></div>
-    <div class="kpi"><b>Dynamic SQL</b><div>{{ "Yes" if repo.has_dynamic_sql else "No" }}</div></div>
-  </div>
-
-  {# NEW SECTION: Database & Schema Inventory #}
-  {% if database_context and database_context.summary %}
-  <div class="section">
-    <h2>📊 Database & Schema Inventory</h2>
-    <div class="muted">Extracted from SQL files, Hive queries, and workflow definitions</div>
-    
-    <div style="margin-top:12px;">
-      <div class="kpi"><b>Databases</b><div>{{ database_context.summary.total_databases }}</div></div>
-      <div class="kpi"><b>Schemas</b><div>{{ database_context.summary.total_schemas }}</div></div>
-      <div class="kpi"><b>Source Table Refs</b><div>{{ database_context.summary.total_source_table_refs }}</div></div>
-      <div class="kpi"><b>Target Table Refs</b><div>{{ database_context.summary.total_target_table_refs }}</div></div>
+  <div class="container">
+    <h1>🔍 Cloudera → Databricks Migration Analyzer</h1>
+    <div class="header-meta">
+      <strong>Repository:</strong> <code>{{ repo.repo_root }}</code><br>
+      <strong>Generated:</strong> {{ repo.generated_at_epoch | default("N/A") }}<br>
+      <strong>Analysis Duration:</strong> {{ repo.elapsed_seconds | default(0) }}s<br>
+      <strong>Report Version:</strong> 2.0 (Enhanced with SQL Complexity Analysis)
     </div>
 
-    <h3>Databases Found</h3>
-    {% if database_context.databases|length > 0 %}
-    <table>
-      <thead>
-        <tr>
-          <th>Database</th>
-          <th>Tables</th>
-          <th>Files Using This Database</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for db in database_context.databases %}
-        <tr>
-          <td><code>{{ db }}</code></td>
-          <td>{{ database_context.tables_by_database.get(db, [])|length }}</td>
-          <td>{{ database_context.files_by_database.get(db, [])|length }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="muted">No databases detected</div>
-    {% endif %}
-
-    <details>
-      <summary><h3 style="display: inline;">Source Tables (Reads)</h3> <span class="muted">({{ database_context.source_tables|length }} references)</span></summary>
-      {% if database_context.source_tables|length > 0 %}
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Database</th>
-              <th>Table</th>
-              <th>Operation</th>
-              <th>File</th>
-              <th>Line</th>
-              <th>Confidence</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for table in database_context.source_tables[:200] %}
-            <tr>
-              <td><code>{{ table.database or '(unqualified)' }}</code></td>
-              <td><code>{{ table.table }}</code></td>
-              <td><span class="badge badge-info">{{ table.operation }}</span></td>
-              <td><small>{{ table.file }}</small></td>
-              <td>{{ table.line_number }}</td>
-              <td>
-                <span class="badge {% if table.confidence == 'high' %}badge-success{% elif table.confidence == 'medium' %}badge-warning{% else %}badge-danger{% endif %}">
-                  {{ table.confidence }}
-                </span>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if database_context.source_tables|length > 200 %}
-            <tr>
-              <td colspan="6" class="muted" style="text-align: center;">
-                ... and {{ database_context.source_tables|length - 200 }} more (showing first 200)
-              </td>
-            </tr>
-            {% endif %}
-          </tbody>
-        </table>
+    <!-- Executive Summary KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Files</div>
+        <div class="kpi-value">{{ repo.file_count | default(0) }}</div>
       </div>
-      {% else %}
-      <div class="muted">No source tables detected</div>
-      {% endif %}
-    </details>
-
-    <details>
-      <summary><h3 style="display: inline;">Target Tables (Writes)</h3> <span class="muted">({{ database_context.target_tables|length }} references)</span></summary>
-      {% if database_context.target_tables|length > 0 %}
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Database</th>
-              <th>Table</th>
-              <th>Operation</th>
-              <th>File</th>
-              <th>Line</th>
-              <th>Confidence</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for table in database_context.target_tables[:200] %}
-            <tr>
-              <td><code>{{ table.database or '(unqualified)' }}</code></td>
-              <td><code>{{ table.table }}</code></td>
-              <td><span class="badge badge-primary">{{ table.operation }}</span></td>
-              <td><small>{{ table.file }}</small></td>
-              <td>{{ table.line_number }}</td>
-              <td>
-                <span class="badge {% if table.confidence == 'high' %}badge-success{% elif table.confidence == 'medium' %}badge-warning{% else %}badge-danger{% endif %}">
-                  {{ table.confidence }}
-                </span>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if database_context.target_tables|length > 200 %}
-            <tr>
-              <td colspan="6" class="muted" style="text-align: center;">
-                ... and {{ database_context.target_tables|length - 200 }} more (showing first 200)
-              </td>
-            </tr>
-            {% endif %}
-          </tbody>
-        </table>
+      <div class="kpi">
+        <div class="kpi-label">Workflows</div>
+        <div class="kpi-value">{{ repo.workflow_count | default(0) }}</div>
       </div>
-      {% else %}
-      <div class="muted">No target tables detected</div>
+      <div class="kpi">
+        <div class="kpi-label">Coordinators</div>
+        <div class="kpi-value">{{ repo.coordinator_count | default(0) }}</div>
+      </div>
+      {% if repo.database_count is defined %}
+      <div class="kpi highlight">
+        <div class="kpi-label">Databases</div>
+        <div class="kpi-value">{{ repo.database_count }}</div>
+      </div>
       {% endif %}
-    </details>
+      {% if sql_complexity_summary %}
+      <div class="kpi highlight">
+        <div class="kpi-label">SQL Queries</div>
+        <div class="kpi-value">{{ sql_complexity_summary.queries_analyzed | default(0) }}</div>
+        <div class="kpi-subtitle">analyzed</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg Complexity</div>
+        <div class="kpi-value">{{ sql_complexity_summary.average_complexity_score | default(0) | round(1) }}</div>
+      </div>
+      {% endif %}
+    </div>
 
-    <details>
-      <summary><h3 style="display: inline;">Tables by Database</h3></summary>
-      {% if database_context.tables_by_database %}
-      <table>
-        <thead>
-          <tr>
-            <th>Database</th>
-            <th>Tables</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for db, tables in database_context.tables_by_database.items() %}
-          <tr>
-            <td><code>{{ db }}</code></td>
-            <td>
-              <div class="table-scroll" style="max-height: 150px;">
-                {% for table in tables %}
-                  <code style="display: inline-block; margin: 2px;">{{ table }}</code>
-                {% endfor %}
+    {# ============================================= #}
+    {# SQL COMPLEXITY ANALYSIS SECTION #}
+    {# ============================================= #}
+    {% if sql_complexity_summary %}
+    <div class="section">
+      <h2>📊 SQL Complexity Analysis</h2>
+      <p class="muted">Deep analysis of SQL query complexity across multiple dimensions</p>
+      
+      <div class="subsection">
+        <h3>Complexity Distribution</h3>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-card-title">Simple Queries</div>
+            <div class="metric-card-value" style="color: var(--color-simple);">
+              {{ sql_complexity_summary.complexity_distribution.simple | default(0) }}
+            </div>
+            <div class="complexity-bar">
+              <div class="complexity-fill simple" 
+                   style="width: {{ (sql_complexity_summary.complexity_distribution.simple / sql_complexity_summary.queries_analyzed * 100) if sql_complexity_summary.queries_analyzed else 0 }}%">
               </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="muted">No database-table mappings available</div>
-      {% endif %}
-    </details>
-  </div>
-  {% endif %}
-
-  <div class="section">
-    <h2>Connections & paths</h2>
-    <div class="muted">Counts + drill-down evidence</div>
-    <ul>
-      <li>JDBC strings detected: <b>{{ findings.jdbc_count }}</b></li>
-      <li>URLs detected: <b>{{ findings.url_count }}</b></li>
-      <li>Kafka bootstrap hints: <b>{{ findings.kafka_bootstrap_count }}</b></li>
-      <li>Storage paths detected: <b>{{ findings.storage_path_count }}</b></li>
-    </ul>
-
-    <details>
-      <summary><b>JDBC details</b></summary>
-      <table>
-        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
-        {% for r in findings.jdbc_strings %}
-        <tr>
-          <td><code>{{ r.value }}</code></td>
-          <td>{{ r.file }}</td>
-          <td>{{ r.line }}</td>
-          <td>{{ r.confidence }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
-
-    <details>
-      <summary><b>URL details</b></summary>
-      <table>
-        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
-        {% for r in findings.urls %}
-        <tr>
-          <td><code>{{ r.value }}</code></td>
-          <td>{{ r.file }}</td>
-          <td>{{ r.line }}</td>
-          <td>{{ r.confidence }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
-
-    <details>
-      <summary><b>Storage path details</b></summary>
-      <table>
-        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
-        {% for r in findings.storage_paths %}
-        <tr>
-          <td><code>{{ r.value }}</code></td>
-          <td>{{ r.file }}</td>
-          <td>{{ r.line }}</td>
-          <td>{{ r.confidence }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
-
-    <details>
-      <summary><b>Kafka bootstrap details</b></summary>
-      <table>
-        <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
-        {% for r in findings.kafka_bootstrap_hints %}
-        <tr>
-          <td><code>{{ r.value }}</code></td>
-          <td>{{ r.file }}</td>
-          <td>{{ r.line }}</td>
-          <td>{{ r.confidence }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
-  </div>
-
-  <div class="section">
-    <h2>Coordinators (Oozie schedules)</h2>
-    {% if coordinators|length == 0 %}
-      <div class="muted">No coordinators found.</div>
-    {% else %}
-      <table>
-        <tr>
-          <th>Name</th><th>Frequency</th><th>Start</th><th>End</th><th>Timezone</th><th>Workflow app-path</th><th>Controls</th>
-        </tr>
-        {% for c in coordinators %}
-        <tr>
-          <td>{{ c.name }}</td>
-          <td><code>{{ c.frequency }}</code></td>
-          <td>{{ c.start }}</td>
-          <td>{{ c.end }}</td>
-          <td>{{ c.timezone }}</td>
-          <td><code>{{ c.workflow_app_path }}</code></td>
-          <td class="muted">
-            {% if c.controls %}
-              concurrency={{ c.controls.concurrency }},
-              execution={{ c.controls.execution }},
-              throttle={{ c.controls.throttle }}
-            {% else %}
-              -
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </table>
-      <div class="muted">
-        Note: Oozie coordinators typically use <code>${coord:...}</code> expressions rather than cron.
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <div class="metric-card-title">Moderate Queries</div>
+            <div class="metric-card-value" style="color: var(--color-moderate);">
+              {{ sql_complexity_summary.complexity_distribution.moderate | default(0) }}
+            </div>
+            <div class="complexity-bar">
+              <div class="complexity-fill moderate" 
+                   style="width: {{ (sql_complexity_summary.complexity_distribution.moderate / sql_complexity_summary.queries_analyzed * 100) if sql_complexity_summary.queries_analyzed else 0 }}%">
+              </div>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <div class="metric-card-title">Complex Queries</div>
+            <div class="metric-card-value" style="color: var(--color-complex);">
+              {{ sql_complexity_summary.complexity_distribution.complex | default(0) }}
+            </div>
+            <div class="complexity-bar">
+              <div class="complexity-fill complex" 
+                   style="width: {{ (sql_complexity_summary.complexity_distribution.complex / sql_complexity_summary.queries_analyzed * 100) if sql_complexity_summary.queries_analyzed else 0 }}%">
+              </div>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <div class="metric-card-title">Very Complex Queries</div>
+            <div class="metric-card-value" style="color: var(--color-very-complex);">
+              {{ sql_complexity_summary.complexity_distribution.very_complex | default(0) }}
+            </div>
+            <div class="complexity-bar">
+              <div class="complexity-fill very-complex" 
+                   style="width: {{ (sql_complexity_summary.complexity_distribution.very_complex / sql_complexity_summary.queries_analyzed * 100) if sql_complexity_summary.queries_analyzed else 0 }}%">
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div class="subsection">
+        <h3>Aggregated SQL Metrics</h3>
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="kpi-label">Total JOINs</div>
+            <div class="kpi-value">{{ sql_complexity_summary.aggregated_metrics.total_joins | default(0) }}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Subqueries</div>
+            <div class="kpi-value">{{ sql_complexity_summary.aggregated_metrics.total_subqueries | default(0) }}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">CTEs</div>
+            <div class="kpi-value">{{ sql_complexity_summary.aggregated_metrics.total_ctes | default(0) }}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Window Functions</div>
+            <div class="kpi-value">{{ sql_complexity_summary.aggregated_metrics.total_window_functions | default(0) }}</div>
+          </div>
+        </div>
+      </div>
+
+      {% if sql_complexity_summary.risk_flag_summary %}
+      <div class="subsection">
+        <h3>⚠️ Risk Flags Summary</h3>
+        <p class="muted">Common complexity and performance risk patterns detected</p>
+        <div class="metric-grid">
+          {% for flag, count in sql_complexity_summary.risk_flag_summary.items() %}
+          <div class="metric-card">
+            <div class="metric-card-title">{{ flag | replace('_', ' ') | title }}</div>
+            <div class="metric-card-value">{{ count }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <details>
+        <summary><strong>Top 10 Most Complex Queries</strong></summary>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>File</th>
+                <th>Complexity Score</th>
+                <th>Level</th>
+                <th>JOINs</th>
+                <th>Subqueries</th>
+                <th>CTEs</th>
+                <th>Risk Flags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for query in sql_complexity_summary.top_10_most_complex %}
+              <tr>
+                <td><strong>{{ loop.index }}</strong></td>
+                <td><small>{{ query.file_path }}</small></td>
+                <td><strong>{{ query.total_complexity_score }}</strong></td>
+                <td>
+                  <span class="badge badge-{{ query.complexity_level | replace('_', '-') }}">
+                    {{ query.complexity_level | upper }}
+                  </span>
+                </td>
+                <td>{{ query.join_analysis.total_joins }}</td>
+                <td>{{ query.subquery_analysis.total_subqueries }}</td>
+                <td>{{ query.cte_analysis.total_ctes }}</td>
+                <td>
+                  {% for flag in query.risk_flags %}
+                  <span class="risk-flag">{{ flag }}</span>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary><strong>Detailed Query Analysis</strong> ({{ sql_complexity_summary.queries_analyzed }} queries)</summary>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Complexity</th>
+                <th>Score</th>
+                <th>Lines</th>
+                <th>Exec Complexity</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for query in sql_complexity_summary.detailed_results[:100] %}
+              <tr>
+                <td><small>{{ query.file_path }}</small></td>
+                <td>
+                  <span class="badge badge-{{ query.complexity_level | replace('_', '-') }}">
+                    {{ query.complexity_level }}
+                  </span>
+                </td>
+                <td><strong>{{ query.total_complexity_score }}</strong></td>
+                <td>{{ query.query_lines }}</td>
+                <td>{{ query.estimated_execution_complexity }}</td>
+                <td class="small-text">
+                  J:{{ query.join_analysis.total_joins }}
+                  SQ:{{ query.subquery_analysis.total_subqueries }}
+                  C:{{ query.cte_analysis.total_ctes }}
+                  W:{{ query.window_function_analysis.total_window_functions }}
+                </td>
+              </tr>
+              {% endfor %}
+              {% if sql_complexity_summary.detailed_results | length > 100 %}
+              <tr>
+                <td colspan="6" class="muted" style="text-align: center;">
+                  Showing first 100 of {{ sql_complexity_summary.detailed_results | length }} queries
+                </td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
     {% endif %}
-  </div>
 
-  <div class="section">
-    <h2>Resolved variables</h2>
-    <details open>
-      <summary><b>Resolved</b> ({{ resolved_vars|length }})</summary>
-      <table>
-        <tr><th>Name</th><th>Value</th><th>Definitions</th></tr>
-        {% for v in resolved_vars %}
-        <tr>
-          <td><code>{{ v.name }}</code></td>
-          <td><code>{{ v.value }}</code></td>
-          <td class="muted">
-            {% for d in v.definitions %}
-              <div>{{ d.kind }} @ {{ d.defined_in }}</div>
+    {# ============================================= #}
+    {# DATABASE & SCHEMA INVENTORY SECTION #}
+    {# ============================================= #}
+    {% if database_context and database_context.summary %}
+    <div class="section">
+      <h2>🗄️ Database & Schema Inventory</h2>
+      <p class="muted">Comprehensive database, schema, and table analysis</p>
+      
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Databases</div>
+          <div class="kpi-value">{{ database_context.summary.total_databases }}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Schemas</div>
+          <div class="kpi-value">{{ database_context.summary.total_schemas }}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Source Refs</div>
+          <div class="kpi-value">{{ database_context.summary.total_source_table_refs }}</div>
+          <div class="kpi-subtitle">reads</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Target Refs</div>
+          <div class="kpi-value">{{ database_context.summary.total_target_table_refs }}</div>
+          <div class="kpi-subtitle">writes</div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3>Database Overview</h3>
+        {% if database_context.databases %}
+        <table>
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th>Tables</th>
+              <th>Files Using</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for db in database_context.databases %}
+            <tr>
+              <td><code>{{ db }}</code></td>
+              <td>{{ database_context.tables_by_database.get(db, []) | length }}</td>
+              <td>{{ database_context.files_by_database.get(db, []) | length }}</td>
+            </tr>
             {% endfor %}
-          </td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
+          </tbody>
+        </table>
+        {% else %}
+        <div class="no-data">No databases detected</div>
+        {% endif %}
+      </div>
 
-    <details>
-      <summary><b>Partially resolved</b> ({{ partial_vars|length }})</summary>
-      <table>
-        <tr><th>Name</th><th>Raw</th><th>Resolved</th><th>Unresolved parts</th></tr>
-        {% for v in partial_vars %}
-        <tr>
-          <td><code>{{ v.name }}</code></td>
-          <td><code>{{ v.raw_value }}</code></td>
-          <td><code>{{ v.resolved_value }}</code></td>
-          <td class="muted">{{ v.unresolved_parts }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
+      <details>
+        <summary><strong>Source Tables</strong> ({{ database_context.source_tables | length }} references)</summary>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Operation</th>
+                <th>File</th>
+                <th>Line</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for table in database_context.source_tables[:200] %}
+              <tr>
+                <td><code>{{ table.database or '(default)' }}</code></td>
+                <td><code>{{ table.table }}</code></td>
+                <td><span class="badge badge-info">{{ table.operation }}</span></td>
+                <td class="small-text">{{ table.file }}</td>
+                <td>{{ table.line_number }}</td>
+                <td>
+                  <span class="badge {% if table.confidence == 'high' %}badge-success{% elif table.confidence == 'medium' %}badge-warning{% else %}badge-danger{% endif %}">
+                    {{ table.confidence }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
 
-    <details>
-      <summary><b>Still unresolved</b> ({{ unresolved_vars|length }})</summary>
-      <table>
-        <tr><th>Name</th><th>Reason</th><th>Definitions found</th></tr>
-        {% for v in unresolved_vars %}
-        <tr>
-          <td><code>{{ v.name }}</code></td>
-          <td class="muted">{{ v.reason }}</td>
-          <td class="muted">
-            {% for d in v.definitions_found %}
-              <div>{{ d.kind }} @ {{ d.defined_in }}</div>
+      <details>
+        <summary><strong>Target Tables</strong> ({{ database_context.target_tables | length }} references)</summary>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Operation</th>
+                <th>File</th>
+                <th>Line</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for table in database_context.target_tables[:200] %}
+              <tr>
+                <td><code>{{ table.database or '(default)' }}</code></td>
+                <td><code>{{ table.table }}</code></td>
+                <td><span class="badge badge-primary">{{ table.operation }}</span></td>
+                <td class="small-text">{{ table.file }}</td>
+                <td>{{ table.line_number }}</td>
+                <td>
+                  <span class="badge {% if table.confidence == 'high' %}badge-success{% elif table.confidence == 'medium' %}badge-warning{% else %}badge-danger{% endif %}">
+                    {{ table.confidence }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+    {% endif %}
+
+    {# ============================================= #}
+    {# EXISTING SECTIONS (Enhanced) #}
+    {# ============================================= #}
+    
+    <div class="section">
+      <h2>🔌 Connections & External Systems</h2>
+      <p class="muted">JDBC, URLs, Kafka, and storage paths detected</p>
+      
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">JDBC Strings</div>
+          <div class="kpi-value">{{ findings.jdbc_count | default(0) }}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">URLs</div>
+          <div class="kpi-value">{{ findings.url_count | default(0) }}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Kafka Hints</div>
+          <div class="kpi-value">{{ findings.kafka_bootstrap_count | default(0) }}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Storage Paths</div>
+          <div class="kpi-value">{{ findings.storage_path_count | default(0) }}</div>
+        </div>
+      </div>
+
+      <details>
+        <summary><strong>JDBC Connection Strings</strong></summary>
+        {% if findings.jdbc_strings %}
+        <table>
+          <thead>
+            <tr><th>Value</th><th>File</th><th>Line</th><th>Confidence</th></tr>
+          </thead>
+          <tbody>
+            {% for r in findings.jdbc_strings %}
+            <tr>
+              <td><code>{{ r.value }}</code></td>
+              <td class="small-text">{{ r.file }}</td>
+              <td>{{ r.line }}</td>
+              <td><span class="badge badge-info">{{ r.confidence }}</span></td>
+            </tr>
             {% endfor %}
-          </td>
-        </tr>
-        {% endfor %}
-      </table>
-    </details>
-  </div>
+          </tbody>
+        </table>
+        {% else %}
+        <div class="no-data">No JDBC connections detected</div>
+        {% endif %}
+      </details>
 
-  <div class="section">
-    <h2>File inventory</h2>
-    <table>
-      <tr>
-        <th>Path</th><th>Type</th><th>Lines</th><th>Words</th><th>Status</th>
-      </tr>
-      {% for f in files %}
-      <tr>
-        <td>{{ f.path }}</td>
-        <td>{{ f.detected_type }}</td>
-        <td>{{ f.lines_count }}</td>
-        <td>{{ f.words_count }}</td>
-        <td class="muted">{{ f.parse_status }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+      <!-- Other connection details... -->
+    </div>
 
+    <div class="section">
+      <h2>📋 File Inventory</h2>
+      <p class="muted">Complete list of analyzed files</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>Type</th>
+              <th>Lines</th>
+              <th>Words</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in files %}
+            <tr>
+              <td class="small-text">{{ f.path }}</td>
+              <td><span class="badge badge-info">{{ f.detected_type }}</span></td>
+              <td>{{ f.lines_count }}</td>
+              <td>{{ f.words_count }}</td>
+              <td class="muted">{{ f.parse_status }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <footer style="text-align: center; color: #999; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+        <p><strong>Cloudera → Databricks Migration Analyzer v2.0</strong></p>
+        <p class="small-text">Enhanced with SQL Complexity Analysis & Comprehensive Database Inventory</p>
+        <p class="small-text">Generated: {{ repo.generated_at_epoch }} | Duration: {{ repo.elapsed_seconds }}s</p>
+      </footer>
+    </div>
+
+  </div>
 </body>
 </html>

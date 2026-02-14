@@ -11,18 +11,79 @@ thresholds:
 
 # Heuristic scoring points (tunable)
 points:
-  # Existing points
+  # Existing Oozie points
   oozie_action: 2
   oozie_control_flow: 8
   oozie_subworkflow: 6
+  
+  # Technology complexity
   multi_language_bonus: 10
-  streaming_bonus: 15
   external_system_bonus: 5
-  dynamic_sql_bonus: 10
-  secrets_bonus: 15
+  
+  # Operational complexity
+  streaming_bonus: 15
   schedule_high_freq_bonus: 8
   
-  # NEW: Database complexity points
+  # Data complexity
+  dynamic_sql_bonus: 10
+  
+  # Security complexity
+  secrets_bonus: 15
+  
+  # ========================================
+  # DATABASE COMPLEXITY POINTS (Phase 1)
+  # ========================================
   multi_database_bonus: 10        # 5+ databases in repository
   high_table_usage_bonus: 8       # High number of table references (50+ reads or 20+ writes)
   cross_database_bonus: 5         # Cross-database activity detected
+  
+  # ========================================
+  # SQL COMPLEXITY POINTS (Phase 2 - NEW)
+  # ========================================
+  
+  # Average SQL complexity scoring
+  high_sql_complexity_bonus: 15      # Avg complexity score > 50
+  moderate_sql_complexity_bonus: 8   # Avg complexity score > 30
+  
+  # Complex query count scoring
+  many_complex_queries_bonus: 10     # 10+ complex/very complex queries
+  some_complex_queries_bonus: 5      # 5+ complex/very complex queries
+  
+  # Specific SQL risk patterns
+  correlated_subquery_bonus: 8       # Correlated subqueries detected (5+)
+  cross_join_penalty: 10             # CROSS JOINs detected
+  many_joins_penalty: 6              # Queries with many JOINs (6+)
+  deep_nesting_penalty: 8            # Deep subquery nesting (4+ levels)
+  recursive_cte_bonus: 12            # Recursive CTEs detected
+  
+# ========================================
+# SQL COMPLEXITY THRESHOLDS
+# ========================================
+sql_complexity_thresholds:
+  simple_max: 20           # Score 0-20: Simple queries
+  moderate_max: 50         # Score 21-50: Moderate complexity
+  complex_max: 80          # Score 51-80: Complex queries
+  # 81+: Very complex queries
+
+# ========================================
+# MIGRATION RISK FACTORS
+# ========================================
+# These don't add to score but flag special attention needed
+high_risk_flags:
+  - cross_join              # Cartesian products - major performance risk
+  - correlated_subqueries   # Performance anti-pattern
+  - recursive_cte           # Complex logic, may need rewrite
+  - dynamic_sql             # Hard to analyze and migrate
+  - self_join               # Can be complex to optimize
+
+medium_risk_flags:
+  - many_joins              # 6+ joins may need optimization
+  - deep_nesting            # Hard to read and maintain
+  - many_window_functions   # Resource intensive
+  - cross_database          # May need architecture changes
+  - many_ctes               # Complex query structure
+
+low_risk_flags:
+  - distinct_aggregates     # Minor performance consideration
+  - many_set_operations     # May need review
+  - multi_database          # Organizational complexity
