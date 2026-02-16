@@ -25,8 +25,6 @@ from ..dependency.graph import build_dependency_graph
 from ..metrics.complexity import score_repository
 from ..resolution.resolver import resolve_repository
 from ...reporting.render import render_html_report
-# CSV Export
-from ...reporting.csv_export import export_all_to_csv
 
 
 def _write_json(path: Path, obj: Any) -> None:
@@ -54,13 +52,12 @@ def analyze_repository(
     2. Oozie workflow parsing
     3. Pattern detection (JDBC, URLs, etc.)
     4. SQL lineage extraction
-    5. Database/schema extraction
-    6. SQL complexity analysis
+    5. Database/schema extraction (NEW)
+    6. SQL complexity analysis (NEW)
     7. Dependency graph building
     8. Complexity scoring (enhanced with DB context)
     9. Variable resolution
     10. HTML report generation
-    11. CSV exports generation (NEW)
     
     All intermediate results are saved as JSON artifacts for:
     - Future analysis
@@ -74,8 +71,6 @@ def analyze_repository(
     out_dir = Path(output_run_dir)
     artifacts_dir = out_dir / "artifacts"
     logs_dir = out_dir / "logs"
-    csv_dir = out_dir / "csv_exports"
-    
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     logs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -88,7 +83,7 @@ def analyze_repository(
     # STEP 1: Repository Scanning & Classification
     # ============================================
     if log:
-        log.info("Step 1/11: Scanning repository and classifying files...")
+        log.info("Step 1/10: Scanning repository and classifying files...")
     
     files_index = scan_repository(
         repo_root=repo_root,
@@ -105,7 +100,7 @@ def analyze_repository(
     # STEP 2: File Metrics
     # ============================================
     if log:
-        log.info("Step 2/11: Computing file metrics...")
+        log.info("Step 2/10: Computing file metrics...")
     
     files_index = compute_counts(repo_root, files_index)
     _write_json(artifacts_dir / "files_index.json", files_index)
@@ -114,7 +109,7 @@ def analyze_repository(
     # STEP 3: Oozie Workflow Parsing
     # ============================================
     if log:
-        log.info("Step 3/11: Parsing Oozie workflows...")
+        log.info("Step 3/10: Parsing Oozie workflows...")
     
     workflows: List[Dict[str, Any]] = []
     coordinators: List[Dict[str, Any]] = []
@@ -144,7 +139,7 @@ def analyze_repository(
     # STEP 4: Pattern Detection
     # ============================================
     if log:
-        log.info("Step 4/11: Detecting patterns (JDBC, URLs, Kafka, paths)...")
+        log.info("Step 4/10: Detecting patterns (JDBC, URLs, Kafka, paths)...")
     
     findings = scan_repo_patterns(repo_root, files_index, patterns)
     _write_json(artifacts_dir / "findings.json", findings)
@@ -157,7 +152,7 @@ def analyze_repository(
     # STEP 5: Basic SQL Lineage
     # ============================================
     if log:
-        log.info("Step 5/11: Extracting SQL lineage...")
+        log.info("Step 5/10: Extracting SQL lineage...")
     
     lineage = extract_sql_lineage_repo(repo_root, files_index)
     _write_json(artifacts_dir / "lineage.json", lineage)
@@ -166,10 +161,10 @@ def analyze_repository(
         log.info(f"  Lineage entries: {len(lineage)}")
 
     # ============================================
-    # STEP 6: Database & Schema Extraction
+    # STEP 6: Database & Schema Extraction (NEW)
     # ============================================
     if log:
-        log.info("Step 6/11: Extracting database and schema information...")
+        log.info("Step 6/10: Extracting database and schema information...")
     
     database_context = extract_databases_from_repository(repo_root, files_index)
     _write_json(artifacts_dir / "database_context.json", database_context)
@@ -178,21 +173,20 @@ def analyze_repository(
         db_summary = database_context.get("summary", {})
         log.info(f"  Databases: {db_summary.get('total_databases', 0)}, "
                 f"Source tables: {db_summary.get('total_source_table_refs', 0)}, "
-                f"Target tables: {db_summary.get('total_target_table_refs', 0)}, "
-                f"Variables: {db_summary.get('total_variables', 0)}")
+                f"Target tables: {db_summary.get('total_target_table_refs', 0)}")
 
     # ============================================
-    # STEP 7: SQL Complexity Analysis
+    # STEP 7: SQL Complexity Analysis (NEW)
     # ============================================
     if log:
-        log.info("Step 7/11: Analyzing SQL complexity...")
+        log.info("Step 7/10: Analyzing SQL complexity...")
     
     sql_complexity_summary = analyze_repository_sql_complexity(repo_root, files_index)
     _write_json(artifacts_dir / "sql_complexity_analysis.json", sql_complexity_summary)
     
     if log:
         log.info(f"  Queries analyzed: {sql_complexity_summary.get('queries_analyzed', 0)}")
-        log.info(f"  Avg complexity score: {sql_complexity_summary.get('average_complexity_score', 0):.1f}")
+        log.info(f"  Avg complexity score: {sql_complexity_summary.get('average_complexity_score', 0)}")
         dist = sql_complexity_summary.get('complexity_distribution', {})
         log.info(f"  Distribution - Simple: {dist.get('simple', 0)}, "
                 f"Moderate: {dist.get('moderate', 0)}, "
@@ -203,7 +197,7 @@ def analyze_repository(
     # STEP 8: Variable Extraction
     # ============================================
     if log:
-        log.info("Step 8/11: Extracting variables...")
+        log.info("Step 8/10: Extracting variables...")
     
     variables = extract_variables_repo(repo_root, files_index)
     _write_json(artifacts_dir / "variables.json", variables)
@@ -212,7 +206,7 @@ def analyze_repository(
     # STEP 9: Dependency Graph
     # ============================================
     if log:
-        log.info("Step 9/11: Building dependency graph...")
+        log.info("Step 9/10: Building dependency graph...")
     
     dep_graph = build_dependency_graph(repo_root, files_index, workflows_blob)
     _write_json(artifacts_dir / "dependency_graph.json", dep_graph)
@@ -221,7 +215,7 @@ def analyze_repository(
     # STEP 10: Complexity Scoring (Enhanced)
     # ============================================
     if log:
-        log.info("Step 10/11: Computing complexity scores...")
+        log.info("Step 10/10: Computing complexity scores...")
     
     complexity = score_repository(
         files_index,
@@ -229,8 +223,8 @@ def analyze_repository(
         findings,
         lineage,
         rubric,
-        database_context=database_context,
-        sql_complexity_summary=sql_complexity_summary
+        database_context=database_context,  # Pass DB context for enhanced scoring
+        sql_complexity_summary=sql_complexity_summary  # Pass SQL complexity
     )
     _write_json(artifacts_dir / "complexity.json", complexity)
 
@@ -295,8 +289,9 @@ def analyze_repository(
     _write_json(artifacts_dir / "lineage_resolved.json", resolved.get("resolved_lineage", lineage))
 
     # ============================================
-    # STEP 13: Master Manifest
+    # STEP 13: Master Manifest (NEW)
     # ============================================
+    # Create a master manifest that lists all artifacts
     manifest = {
         "version": "2.0",
         "generated_at": int(time.time()),
@@ -316,7 +311,7 @@ def analyze_repository(
                 "findings_resolved.json": "Findings with resolved variables",
             },
             "database": {
-                "database_context.json": "Database, schema, and table inventory with variables",
+                "database_context.json": "Database, schema, and table inventory",
                 "lineage.json": "Basic SQL lineage (source/target tables)",
                 "lineage_resolved.json": "Lineage with resolved variables",
             },
@@ -338,49 +333,7 @@ def analyze_repository(
     _write_json(artifacts_dir / "MANIFEST.json", manifest)
 
     # ============================================
-    # STEP 14: CSV Exports Generation (NEW)
-    # Generate CSV before HTML so download links work
-    # ============================================
-    if log:
-        log.info("Generating CSV exports for download...")
-    
-    csv_results = {}
-    try:
-        csv_results = export_all_to_csv(artifacts_dir, csv_dir)
-        
-        # Create README (explicit UTF-8 to support Unicode like →)
-        readme_path = csv_dir / "README.txt"
-        with open(readme_path, 'w', encoding='utf-8') as f:
-            f.write("CSV Export - Cloudera \u2192 Databricks Migration Analysis\n")
-            f.write("=" * 60 + "\n\n")
-            from datetime import datetime
-            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            f.write("Files:\n")
-            f.write("------\n")
-            f.write("0_master_summary.csv     - High-level summary metrics\n")
-            f.write(f"1_files_inventory.csv    - Complete file listing ({csv_results.get('files_inventory', 0)} files)\n")
-            f.write(f"2_database_tables.csv    - All table references ({csv_results.get('database_tables', 0)} tables)\n")
-            f.write(f"3_sql_complexity.csv     - SQL complexity analysis ({csv_results.get('sql_complexity', 0)} queries)\n")
-            f.write(f"4_connections.csv        - JDBC/URLs/Kafka/Storage ({csv_results.get('connections', 0)} items)\n")
-            f.write(f"5_variables.csv          - All variables found ({csv_results.get('variables', 0)} variables)\n")
-            f.write(f"6_gaps.csv               - File gaps and migration issues ({csv_results.get('gaps', 0)} gaps)\n\n")
-            f.write("Usage:\n")
-            f.write("------\n")
-            f.write("- Open in Excel for analysis\n")
-            f.write("- Import into database for querying\n")
-            f.write("- Use in data analysis tools (Python, R, etc.)\n")
-            f.write("- Share with stakeholders\n")
-        
-        if log:
-            log.info(f"  CSV exports created in: {csv_dir}")
-            for key, count in csv_results.items():
-                log.info(f"    {key}: {count} records")
-    except Exception as e:
-        if log:
-            log.error(f"  Error generating CSV exports: {e}")
-
-    # ============================================
-    # STEP 15: HTML Report Generation
+    # STEP 14: HTML Report Generation
     # ============================================
     if log:
         log.info("Generating comprehensive HTML report...")
@@ -396,16 +349,14 @@ def analyze_repository(
         resolved_vars=resolved.get("resolved_variables", []),
         partial_vars=resolved.get("partially_resolved_variables", []),
         unresolved_vars=resolved.get("still_unresolved_variables", []),
-        database_context=database_context,
-        sql_complexity_summary=sql_complexity_summary,
-        csv_dir=csv_dir,  # Pass CSV directory for download links
+        database_context=database_context,  # Database inventory
+        sql_complexity_summary=sql_complexity_summary,  # SQL complexity analysis
     )
 
     if log:
         log.info("=" * 80)
         log.info("Analysis Complete!")
-        log.info(f"HTML Report: {out_dir / 'report.html'}")
-        log.info(f"CSV Exports: {csv_dir}")
-        log.info(f"JSON Artifacts: {artifacts_dir}")
+        log.info(f"Report: {out_dir / 'report.html'}")
+        log.info(f"Artifacts: {artifacts_dir}")
         log.info(f"Manifest: {artifacts_dir / 'MANIFEST.json'}")
         log.info("=" * 80)

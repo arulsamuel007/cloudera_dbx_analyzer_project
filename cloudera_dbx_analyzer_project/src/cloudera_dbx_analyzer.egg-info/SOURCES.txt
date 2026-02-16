@@ -43,6 +43,7 @@ src/cldmigrate_analyzer/core/resolution/resolver.py
 src/cldmigrate_analyzer/models/__init__.py
 src/cldmigrate_analyzer/models/schema.py
 src/cldmigrate_analyzer/reporting/__init__.py
+src/cldmigrate_analyzer/reporting/csv_export.py
 src/cldmigrate_analyzer/reporting/render.py
 src/cldmigrate_analyzer/runtime/__init__.py
 src/cldmigrate_analyzer/runtime/paths.py

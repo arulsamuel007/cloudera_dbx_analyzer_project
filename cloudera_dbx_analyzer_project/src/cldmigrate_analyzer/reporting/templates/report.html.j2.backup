@@ -325,35 +325,11 @@
     
     .icon { margin-right: 5px; }
     
-    .download-link {
-      display: inline-block;
-      margin: 10px 10px 10px 0;
-      padding: 10px 20px;
-      background: var(--color-primary);
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-      font-weight: 600;
-      transition: background 0.3s;
-    }
-    
-    .download-link:hover {
-      background: #0052a3;
-      text-decoration: none;
-      color: white;
-    }
-    
-    .download-link::before {
-      content: "⬇ ";
-      margin-right: 5px;
-    }
-    
     @media print {
       body { background: white; padding: 0; }
       .container { box-shadow: none; }
       details { page-break-inside: avoid; }
       .kpi { border: 1px solid #ccc; }
-      .download-link { display: none; }
     }
   </style>
 </head>
@@ -366,12 +342,6 @@
       <strong>Generated:</strong> {{ repo.generated_at_epoch | default("N/A") }}<br>
       <strong>Analysis Duration:</strong> {{ repo.elapsed_seconds | default(0) }}s<br>
       <strong>Report Version:</strong> 2.0 (Comprehensive Analysis)
-      {% if csv_dir_path %}
-      <br><br>
-      <strong>📥 Download Analysis Results:</strong><br>
-      <a href="{{ csv_dir_path }}/6_gaps.csv" class="download-link" download>Download Gaps CSV</a>
-      <span class="muted">(File name and identified gaps in code)</span>
-      {% endif %}
     </div>
 
     <!-- Executive Summary KPIs -->

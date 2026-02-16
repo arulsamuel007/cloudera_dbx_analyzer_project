@@ -19,6 +19,7 @@ def render_html_report(
     unresolved_vars: List[Dict[str, Any]],
     database_context: Dict[str, Any] = None,
     sql_complexity_summary: Dict[str, Any] = None,  # NEW: SQL complexity parameter
+    csv_dir: Path = None,  # NEW: CSV directory path for download links
 ) -> None:
     """
     Render comprehensive HTML report with all analysis results.
@@ -52,6 +53,15 @@ def render_html_report(
         except:
             raise RuntimeError("No report template found")
 
+    # Calculate relative path for CSV directory from HTML report location
+    csv_relative_path = None
+    if csv_dir:
+        try:
+            csv_relative_path = str(Path(csv_dir).relative_to(out_path.parent))
+        except ValueError:
+            # If relative path calculation fails, use absolute path
+            csv_relative_path = str(csv_dir)
+    
     html = tpl.render(
         repo=repo_summary,
         files=files_index,
@@ -66,5 +76,6 @@ def render_html_report(
         unresolved_vars=unresolved_vars,
         database_context=database_context or {},
         sql_complexity_summary=sql_complexity_summary or {},  # NEW: Pass SQL complexity
+        csv_dir_path=csv_relative_path,  # NEW: Pass CSV directory path
     )
     out_path.write_text(html, encoding="utf-8")
